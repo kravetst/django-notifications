@@ -1,3 +1,9 @@
+# Django Notifications
+
+System notification for sending messages to users via various channels: email, Telegram, Viber, Push.
+
+---
+
 ## Description
 
 The system allows you to:
