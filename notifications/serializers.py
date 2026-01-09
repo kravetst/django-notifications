@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from .models import NotificationType, NotificationTemplate
-import re
+
+from .validations.html import validate_html
+from .validations.variables import validate_variables
 
 
 class NotificationTypeSerializer(serializers.ModelSerializer):
@@ -45,29 +47,19 @@ class NotificationTemplateSerializer(serializers.ModelSerializer):
         read_only_fields = ("created_at", "updated_at")
 
     def validate(self, attrs):
-        channel = attrs.get("channel")
-        title = attrs.get("title", "")
-        html = attrs.get("html", "")
-        notification_type = attrs.get("type")
+        channel = attrs.get("channel", self.instance.channel if self.instance else None)
+        html = attrs.get("html", self.instance.html if self.instance else None)
+        notification_type = attrs.get(
+            "type",
+            self.instance.type if self.instance else None
+        )
 
-        # Telegram & Viber must not have title
-        if channel in {"telegram", "viber"} and title:
-            raise serializers.ValidationError({
-                "title": "Title must be empty for telegram and viber."
-            })
+        if channel and html:
+            validate_html(channel=channel, html=html)
 
-        # Validate variables usage in html
-        if notification_type and notification_type.variables:
-            missing_vars = []
-
-            for var in notification_type.variables:
-                pattern = r"{{\s*" + re.escape(var) + r"\s*}}"
-                if not re.search(pattern, html):
-                    missing_vars.append(var)
-
-            if missing_vars:
-                raise serializers.ValidationError({
-                    "html": f"Missing variables in template: {missing_vars}"
-                })
+            validate_variables(
+                html=html,
+                allowed_variables=notification_type.variables,
+            )
 
         return attrs
